@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"slices"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cloudflare/cloudflare-go/v4"
@@ -38,10 +42,13 @@ func main() {
 
 	config := GetCloudflareConfigData(l)
 
-	records := []DNSRecord{}
-	var client *cloudflare.Client
+	var wg sync.WaitGroup
 
+	ctx, cancel := context.WithCancel(context.Background())
 	for token, domains := range config {
+		records := []DNSRecord{}
+		var client *cloudflare.Client
+
 		client = cloudflare.NewClient(option.WithAPIToken(token))
 		z, err := client.Zones.List(context.Background(), zones.ZoneListParams{})
 		if err != nil {
@@ -71,37 +78,51 @@ func main() {
 				}
 			}
 		}
-	}
 
-	ticker := time.NewTicker(interval)
-	for {
-		select {
-		case <-ticker.C:
-			log.Println("interval starting")
-			ipv4Address, err := FetchConfigIPv4(l)
-			if err != nil {
-				log.Printf("unable to fetch ipv4 address in lua: %s\n", err.Error())
-				continue
-			}
-			for i, record := range records {
-				if record.Content == ipv4Address {
-					continue
+		wg.Add(1)
+		go func(ctx context.Context, wg *sync.WaitGroup) {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					log.Printf("interval starting for [%s]\n", token[:4])
+					ipv4Address, err := FetchConfigIPv4(l)
+					if err != nil {
+						log.Printf("unable to fetch ipv4 address in lua: %s\n", err.Error())
+						continue
+					}
+					for i, record := range records {
+						if record.Content == ipv4Address {
+							continue
+						}
+						log.Printf("changing %s, ipv4 different (%s!=%s) changing to %s\n", record.Name, record.Content, ipv4Address, ipv4Address)
+						res, err := client.DNS.Records.Edit(context.Background(), record.ID, dns.RecordEditParams{
+							ZoneID: cloudflare.F(record.Zone),
+							Body: dns.ARecordParam{
+								Name:    cloudflare.F(record.Name),
+								Type:    cloudflare.F(dns.ARecordTypeA),
+								Content: cloudflare.F(ipv4Address),
+							},
+						})
+						if err != nil {
+							log.Printf("error changing record for %s: %s\n", record.Name, err.Error())
+							continue
+						}
+						records[i].Content = res.Content
+					}
 				}
-				log.Printf("changing %s, ipv4 different (%s!=%s) changing to %s\n", record.Name, record.Content, ipv4Address, ipv4Address)
-				res, err := client.DNS.Records.Edit(context.Background(), record.ID, dns.RecordEditParams{
-					ZoneID: cloudflare.F(record.Zone),
-					Body: dns.ARecordParam{
-						Name:    cloudflare.F(record.Name),
-						Type:    cloudflare.F(dns.ARecordTypeA),
-						Content: cloudflare.F(ipv4Address),
-					},
-				})
-				if err != nil {
-					log.Printf("error changing record for %s: %s\n", record.Name, err.Error())
-					continue
-				}
-				records[i].Content = res.Content
 			}
-		}
+		}(ctx, &wg)
 	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	<-sigs
+	cancel()
+	wg.Wait()
+
 }
