@@ -31,14 +31,16 @@ var httpFunctions = []lua.RegistryFunction{
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			lua.Errorf(l, "error fetching: %s", err.Error())
-			return 0
+			l.PushString("")
+			l.PushInteger(400)
+			return 2
 		}
 		defer resp.Body.Close()
 		b, err := io.ReadAll(resp.Body)
 		if err != nil {
-			lua.Errorf(l, "error reading body: %s", err.Error())
-			return 0
+			l.PushString("")
+			l.PushInteger(400)
+			return 2
 		}
 		l.PushString(string(b))
 		l.PushInteger(resp.StatusCode)
