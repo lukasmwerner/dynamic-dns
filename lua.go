@@ -76,3 +76,11 @@ func GetCloudflareConfigData(l *lua.State) map[string][]string {
 	l.Pop(2)
 	return m
 }
+
+func IsHttpAPIEnabled(l *lua.State) bool {
+	l.Global("dns")
+	l.Field(-1, "api")
+	enabled := l.ToBoolean(-1)
+	l.Pop(1)
+	return enabled
+}
