@@ -4,6 +4,7 @@
 ---@field cloudflare table
 ---@field interval number
 ---@field get_ipv4 function
+---@field notify function
 dns = {}
 
 

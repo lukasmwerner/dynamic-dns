@@ -20,5 +20,10 @@ dns.get_ipv4 = function()
 	return ""
 end
 
+dns.notify = function(domain, old, new)
+	local message = domain .. "has new ip: " .. new
+	http.post("https://ntfy.sh/test-topic-dynamic-dns", message)
+end
+
 -- Interval to update the DNS records
 dns.interval = 4 * time.duration.hour

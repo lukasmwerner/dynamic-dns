@@ -36,6 +36,15 @@ func FetchConfigIPv4(l *lua.State) (string, error) {
 	return ip, nil
 }
 
+func Notify(l *lua.State, domain string, oldIP string, newIP string) {
+	l.Global("dns")
+	l.Field(-1, "notify")
+	l.PushString(domain)
+	l.PushString(oldIP)
+	l.PushString(newIP)
+	l.Call(2, 0)
+}
+
 func GetConfigInterval(l *lua.State) time.Duration {
 	l.Global("dns")
 	l.Field(-1, "interval")

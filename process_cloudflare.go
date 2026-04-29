@@ -82,6 +82,7 @@ func startCloudflareConfig(ctx context.Context, l *lua.State, config map[string]
 							log.Printf("error changing record for %s: %s\n", record.Name, err.Error())
 							continue
 						}
+						Notify(l, record.Name, record.Content, ipv4Address)
 						records[i].Content = res.Content
 					}
 				}

@@ -1,6 +1,7 @@
 package lualibraries
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 
@@ -46,6 +47,49 @@ var httpFunctions = []lua.RegistryFunction{
 		l.PushInteger(resp.StatusCode)
 
 		return 2
+	}},
+
+	{Name: "post", Function: func(l *lua.State) int {
+		url := lua.CheckString(l, 1)
+		body_content := lua.CheckString(l, 2)
+
+		body := bytes.NewBufferString(body_content)
+
+		req, err := http.NewRequest("POST", url, body)
+		if err != nil {
+			lua.Errorf(l, "unable to build new request: %s", err.Error())
+			return 0
+		}
+
+		if !l.IsNil(3) {
+			headers, err := util.PullStringTable(l, 3)
+			if err != nil {
+				lua.Errorf(l, "unable to acces headers table: %s", err.Error())
+				return 0
+			}
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			l.PushString("")
+			l.PushInteger(400)
+			return 2
+		}
+		defer resp.Body.Close()
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			l.PushString("")
+			l.PushInteger(400)
+			return 2
+		}
+
+		l.PushString(string(b))
+		l.PushInteger(resp.StatusCode)
+		return 2
+
 	}},
 }
 
