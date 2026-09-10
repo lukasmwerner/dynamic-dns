@@ -5,6 +5,9 @@ local json = require("json")
 dns.cloudflare[os.getenv("CF_TOKEN")] = {
 	"example.com",
 }
+dns.porkbun[{ os.getenv("PORK_KEY"), os.getenv("PORK_SECRET") }] = {
+	"example.com",
+}
 
 function check_aws()
 	local resp, status = http.get("https://checkip.amazonaws.com/", {})
@@ -21,9 +24,12 @@ dns.get_ipv4 = function()
 end
 
 dns.notify = function(domain, old, new)
-	local message = domain .. "has new ip: " .. new
-	http.post("https://ntfy.sh/test-topic-dynamic-dns", message)
+	local message = domain .. " has new ip: " .. new
+	http.post("https://ntfy.sh/test-topic-dynamic-dns", message, {})
 end
 
 -- Interval to update the DNS records
 dns.interval = 4 * time.duration.hour
+
+-- Enable HTTP RPC API
+dns.api = true

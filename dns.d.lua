@@ -2,6 +2,7 @@
 
 ---@class dns
 ---@field cloudflare table
+---@field porkbun table
 ---@field interval number
 ---@field get_ipv4 function
 ---@field notify function

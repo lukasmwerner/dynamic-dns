@@ -7,26 +7,30 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/Shopify/go-lua"
 	"github.com/cloudflare/cloudflare-go/v4"
 	"github.com/cloudflare/cloudflare-go/v4/dns"
 	"github.com/cloudflare/cloudflare-go/v4/option"
 	"github.com/cloudflare/cloudflare-go/v4/zones"
 )
 
-func startCloudflareConfig(ctx context.Context, l *lua.State, config map[string][]string, refresh chan int) *sync.WaitGroup {
-	var wg sync.WaitGroup
+type CloudflareRecord struct {
+	Zone    string
+	ID      string
+	Name    string
+	Content string
+}
 
+func startCloudflareConfig(ctx context.Context, notify chan Notification, config map[string][]string, wg *sync.WaitGroup, refresh Broadcaster) {
 	for token, domains := range config {
-		records := []DNSRecord{}
+		records := []CloudflareRecord{}
 		client := cloudflare.NewClient(option.WithAPIToken(token))
+		println("new client")
 
 		z, err := client.Zones.List(context.Background(), zones.ZoneListParams{})
 		if err != nil {
 			log.Println("encountered error accessing zones:", err.Error())
 			continue
 		}
-
 		for _, zone := range z.Result {
 			fmt.Printf("%s\n", zone.Name)
 			r, err := client.DNS.Records.List(context.Background(), dns.RecordListParams{
@@ -41,7 +45,7 @@ func startCloudflareConfig(ctx context.Context, l *lua.State, config map[string]
 				fmt.Printf("\t%s %s %s\n", record.Type, record.Name, record.Content)
 
 				if slices.Contains(domains, record.Name) {
-					records = append(records, DNSRecord{
+					records = append(records, CloudflareRecord{
 						Zone:    zone.ID,
 						ID:      record.ID,
 						Name:    record.Name,
@@ -53,18 +57,22 @@ func startCloudflareConfig(ctx context.Context, l *lua.State, config map[string]
 
 		wg.Add(1)
 		go func(ctx context.Context, wg *sync.WaitGroup) {
+			signal := make(chan any)
+			refresh.Register(signal)
+			defer refresh.Unregister(signal)
+
 			defer wg.Done()
+
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case <-refresh:
-					log.Printf("interval starting for [%s]\n", token[:4])
-					ipv4Address, err := FetchConfigIPv4(l)
-					if err != nil {
-						log.Printf("unable to fetch ipv4 address in lua: %s\n", err.Error())
-						continue
+				case msg, ok := <-signal:
+					if !ok {
+						return
 					}
+					ipv4Address := msg.(string)
+					log.Printf("interval starting for [%s]\n", token[:8])
 					for i, record := range records {
 						if record.Content == ipv4Address {
 							continue
@@ -82,13 +90,12 @@ func startCloudflareConfig(ctx context.Context, l *lua.State, config map[string]
 							log.Printf("error changing record for %s: %s\n", record.Name, err.Error())
 							continue
 						}
-						Notify(l, record.Name, record.Content, ipv4Address)
+						notify <- Notification{Domain: record.Name, OldIP: record.Content, NewIP: ipv4Address}
 						records[i].Content = res.Content
 					}
 				}
 			}
-		}(ctx, &wg)
+		}(ctx, wg)
 	}
 
-	return &wg
 }

@@ -25,6 +25,8 @@ func LoadDNS(l *lua.State) {
 	l.NewTable() // DNS table
 	l.NewTable() // Cloudflare table
 	l.SetField(-2, "cloudflare")
+	l.NewTable() // Porkbun table
+	l.SetField(-2, "porkbun")
 	lua.SetFunctions(l, dnsFunctions, 0)
 	l.SetGlobal("dns")
 
