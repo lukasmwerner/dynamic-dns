@@ -20,6 +20,9 @@ local json = require("json")
 dns.cloudflare["CF_TOKEN_CONTENTS"] = {
 	"example.com",
 }
+dns.porkbun[{"PORKBUN_KEY", "PORKBUN_SECRET"}] = {
+	"not-example.com",
+}
 
 function check_aws()
 	local resp, status = http.get("https://checkip.amazonaws.com/", {})
@@ -37,4 +40,7 @@ end
 
 -- Interval to update the DNS records
 dns.interval = 2 * time.duration.hour
+
+-- Enables RPC api to allow for manual refreshes
+dns.api = true
 ```
