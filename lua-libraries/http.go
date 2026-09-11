@@ -19,7 +19,7 @@ var httpFunctions = []lua.RegistryFunction{
 			return 0
 		}
 
-		if !l.IsNil(2) {
+		if l.IsTable(2) {
 			headers, err := util.PullStringTable(l, 2)
 			if err != nil {
 				lua.Errorf(l, "unable to acces headers table: %s", err.Error())
