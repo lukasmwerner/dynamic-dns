@@ -68,8 +68,6 @@ func main() {
 	}()
 
 	var wg sync.WaitGroup
-	// BUG: when both Cloudflare and Porkbun are used, only one will get
-	// channel notifications
 	cloudflare_config := GetCloudflareConfigData(l)
 	startCloudflareConfig(ctx, notify, cloudflare_config, &wg, broadcastRefresh)
 	porkbun_config := GetPorkbunConfigData(l)
