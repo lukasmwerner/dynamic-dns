@@ -44,3 +44,16 @@ dns.interval = 2 * time.duration.hour
 -- Enables RPC api to allow for manual refreshes
 dns.api = true
 ```
+
+### Available Lua Libraries:
+| Library    | Source      | Loading |
+| ---------- | ----------- | ------- |
+| `dns`      | dynamic-dns | global  |
+| `time`     | dynamic-dns | global  |
+| `http`     | dynamic-dns | require |
+| `os`       | dynamic-dns | require |
+| `json`     | dynamic-dns | require |
+| `math`     | gopher-lua  | require |
+| `string`   | gopher-lua  | require |
+| `table`    | gopher-lua  | require |
+| `package`  | gopher-lua  | require |
